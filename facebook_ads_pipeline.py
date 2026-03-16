@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
+import psycopg2
 
 import dlt
 from facebook_ads import facebook_ads_source, facebook_insights_source
@@ -42,6 +43,13 @@ def get_postgres_credentials():
     }
 
 
+def get_initial_load_days(client_id: str) -> int:
+    """Días históricos a cargar. Desde env: CLIENT_X_INITIAL_LOAD_DAYS o INITIAL_LOAD_PAST_DAYS."""
+    prefix = f"CLIENT_{client_id.upper().replace('-', '_')}_"
+    return int(os.environ.get(f"{prefix}INITIAL_LOAD_DAYS")
+               or os.environ.get("INITIAL_LOAD_PAST_DAYS", "365"))
+
+
 def run_pipeline_for_client(
     client_id: str,
     account_id: str,
@@ -49,7 +57,7 @@ def run_pipeline_for_client(
     database_name: str,
     load_ads: bool = True,
     load_insights: bool = True,
-    initial_load_past_days: int = 30,
+    initial_load_past_days: int = None,
 ):
     """
     Ejecuta el pipeline dlt para un cliente específico.
@@ -81,13 +89,46 @@ def run_pipeline_for_client(
         print(f"Cliente {client_id} - Ads: {load_info}")
 
     if load_insights:
+        days = initial_load_past_days or get_initial_load_days(client_id)
+        print(f"Cliente {client_id} - Cargando Insights (histórico: {days} días, incremental en siguientes ejecuciones)")
         insights_data = facebook_insights_source(
             account_id=account_id,
             access_token=access_token,
-            initial_load_past_days=initial_load_past_days,
+            initial_load_past_days=days,
         )
         load_info = pipeline.run(insights_data)
         print(f"Cliente {client_id} - Insights: {load_info}")
+
+    # Aplicar vistas de métricas personalizadas tras cargar Insights
+    if load_insights and os.environ.get("SKIP_CUSTOM_VIEWS") != "1":
+        apply_custom_metrics_views(database_name, creds)
+
+
+def apply_custom_metrics_views(database_name: str, creds: dict):
+    """Crea/actualiza vistas de métricas personalizadas en Postgres."""
+    sql_path = Path(__file__).parent / "sql" / "custom_metrics_views.sql"
+    if not sql_path.exists():
+        print("  (sql/custom_metrics_views.sql no encontrado, omitiendo vistas)")
+        return
+    sql = sql_path.read_text()
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            host=creds["host"],
+            port=creds["port"],
+            dbname=database_name,
+            user=creds["username"],
+            password=creds["password"],
+        )
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        print(f"  Vistas de métricas personalizadas aplicadas en {database_name}")
+    except Exception as e:
+        print(f"  Advertencia: no se pudieron crear vistas personalizadas: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 
 def load_clients_from_yaml() -> list:
