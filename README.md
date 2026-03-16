@@ -136,6 +136,19 @@ Conecta Looker Studio a cada base de datos Postgres de cliente:
 
 Si configuras `SENTRY_DSN`, los errores del pipeline se envían a Sentry. Útil para ver fallos y progreso sin interfaz gráfica propia en dlt.
 
+## Observador (estado del pipeline)
+
+Para ver si el pipeline está ejecutándose y el resultado de la última carrera:
+
+```bash
+python observer.py              # Estado actual
+python observer.py --watch      # Actualiza cada 5 segundos
+python observer.py --serve      # Servidor HTTP en puerto 8080 (GET /status devuelve JSON)
+python observer.py --json       # Salida en JSON
+```
+
+Con `--serve` puedes exponer el puerto y consultar desde fuera: `curl http://tu-servidor:8080/status`
+
 ## Estructura del proyecto
 
 ```

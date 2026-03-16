@@ -3,6 +3,7 @@ Pipeline dlt para Facebook Ads e Insights.
 Carga datos por cliente en bases de datos Postgres independientes.
 Integrado con Sentry para monitoreo.
 """
+import json
 import os
 import sys
 from pathlib import Path
@@ -209,6 +210,20 @@ def verify_sentry():
     print(division_by_zero)  # nunca se ejecuta
 
 
+def _status_path():
+    return Path(os.environ.get("PIPELINE_STATUS_PATH", "/app/.pipeline_status.json"))
+
+
+def write_pipeline_status(running: bool, **kwargs):
+    """Escribe estado del pipeline para el observador."""
+    try:
+        data = {"running": running, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **kwargs}
+        p = _status_path()
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def main():
     init_sentry()
 
@@ -245,6 +260,8 @@ def main():
     # Flags: --ads-only, --insights-only (o LOAD_ADS_ONLY=1, LOAD_INSIGHTS_ONLY=1)
     # Variables carga gradual: INITIAL_LOAD_CHUNK_DAYS, SLEEP_AFTER_INSIGHTS_DAYS, SLEEP_BETWEEN_INSIGHTS_SECONDS
     # Pausa entre clientes: PAUSE_BETWEEN_CLIENTS_SECONDS
+    run_status = "ok"
+    last_error = None
     try:
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         load_ads = "--insights-only" not in sys.argv and os.environ.get("LOAD_INSIGHTS_ONLY") != "1"
@@ -272,6 +289,7 @@ def main():
             clients = load_clients_from_yaml() or load_clients_from_env()
 
         if not clients:
+            run_status = "no_clients"
             print(
                 "Uso: python facebook_ads_pipeline.py <client_id> <account_id> <access_token> [database]\n"
                 "Flags: --ads-only, --insights-only\n"
@@ -282,10 +300,26 @@ def main():
             )
             sys.exit(1)
 
+        client_ids = [c["id"] for c in clients]
+        started_at_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        write_pipeline_status(
+            running=True,
+            started_at=started_at_str,
+            clients=client_ids,
+            current_client=None,
+        )
+
+        run_status = "ok"
         for i, client in enumerate(clients):
             if i > 0 and pause_clients > 0:
                 print(f"Pausa {pause_clients}s antes del cliente {client['id']}...")
                 time.sleep(pause_clients)
+            write_pipeline_status(
+                running=True,
+                started_at=started_at_str,
+                clients=client_ids,
+                current_client=client["id"],
+            )
             run_pipeline_for_client(
                 client_id=client["id"],
                 account_id=client["account_id"],
@@ -311,6 +345,8 @@ def main():
             except Exception:
                 pass
     except Exception as e:
+        run_status = "error"
+        last_error = str(e)
         sentry_sdk.capture_exception(e)
         print(f"Error: {e}")
         if os.environ.get("SENTRY_DSN") and check_in_id and not sent_completion:
@@ -336,6 +372,12 @@ def main():
                 )
             except Exception:
                 pass
+        write_pipeline_status(
+            running=False,
+            status=run_status,
+            duration_seconds=int(time.time() - start_time),
+            error=last_error,
+        )
 
 
 if __name__ == "__main__":
