@@ -61,6 +61,9 @@ def run_pipeline_for_client(
     load_ads: bool = True,
     load_insights: bool = True,
     initial_load_past_days: int = None,
+    initial_load_chunk_days: int = None,
+    sleep_after_insights_days: int = None,
+    sleep_seconds: int = None,
 ):
     """
     Ejecuta el pipeline dlt para un cliente específico.
@@ -93,11 +96,23 @@ def run_pipeline_for_client(
 
     if load_insights:
         days = initial_load_past_days or get_initial_load_days(client_id)
-        print(f"Cliente {client_id} - Cargando Insights (histórico: {days} días, incremental en siguientes ejecuciones)")
+        chunk = initial_load_chunk_days
+        sleep_days = sleep_after_insights_days
+        sleep_sec = sleep_seconds
+        msg = f"Cliente {client_id} - Cargando Insights (histórico: {days} días"
+        if chunk:
+            msg += f", máx {chunk} días por ejecución"
+        if sleep_days and sleep_sec:
+            msg += f", pausa {sleep_sec}s cada {sleep_days} días"
+        msg += ")"
+        print(msg)
         insights_data = facebook_insights_source(
             account_id=account_id,
             access_token=access_token,
             initial_load_past_days=days,
+            max_days_per_run=chunk,
+            sleep_after_n_days=sleep_days,
+            sleep_seconds=sleep_sec,
         )
         load_info = pipeline.run(insights_data)
         print(f"Cliente {client_id} - Insights: {load_info}")
@@ -227,12 +242,31 @@ def main():
             pass
 
     # Modo: argumentos CLI > clients.yaml > env
+    # Flags: --ads-only, --insights-only (o LOAD_ADS_ONLY=1, LOAD_INSIGHTS_ONLY=1)
+    # Variables carga gradual: INITIAL_LOAD_CHUNK_DAYS, SLEEP_AFTER_INSIGHTS_DAYS, SLEEP_BETWEEN_INSIGHTS_SECONDS
+    # Pausa entre clientes: PAUSE_BETWEEN_CLIENTS_SECONDS
     try:
-        if len(sys.argv) >= 4:
-            client_id = sys.argv[1]
-            account_id = sys.argv[2]
-            access_token = sys.argv[3]
-            database = sys.argv[4] if len(sys.argv) > 4 else f"fb_{client_id}"
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        load_ads = "--insights-only" not in sys.argv and os.environ.get("LOAD_INSIGHTS_ONLY") != "1"
+        load_insights = "--ads-only" not in sys.argv and os.environ.get("LOAD_ADS_ONLY") != "1"
+        if os.environ.get("LOAD_ADS_ONLY") == "1":
+            load_insights = False
+        if os.environ.get("LOAD_INSIGHTS_ONLY") == "1":
+            load_ads = False
+
+        chunk_days = os.environ.get("INITIAL_LOAD_CHUNK_DAYS")
+        initial_load_chunk_days = int(chunk_days) if chunk_days else None
+        sleep_days = os.environ.get("SLEEP_AFTER_INSIGHTS_DAYS")
+        sleep_after_insights_days = int(sleep_days) if sleep_days else None
+        sleep_sec = os.environ.get("SLEEP_BETWEEN_INSIGHTS_SECONDS")
+        sleep_seconds = int(sleep_sec) if sleep_sec else 60
+        pause_clients = int(os.environ.get("PAUSE_BETWEEN_CLIENTS_SECONDS", "0"))
+
+        if len(args) >= 4:
+            client_id = args[0]
+            account_id = args[1]
+            access_token = args[2]
+            database = args[3] if len(args) > 3 else f"fb_{client_id}"
             clients = [{"id": client_id, "account_id": account_id, "access_token": access_token, "database": database}]
         else:
             clients = load_clients_from_yaml() or load_clients_from_env()
@@ -240,16 +274,28 @@ def main():
         if not clients:
             print(
                 "Uso: python facebook_ads_pipeline.py <client_id> <account_id> <access_token> [database]\n"
+                "Flags: --ads-only, --insights-only\n"
+                "Env: LOAD_ADS_ONLY=1, LOAD_INSIGHTS_ONLY=1, INITIAL_LOAD_CHUNK_DAYS=30,\n"
+                "     SLEEP_AFTER_INSIGHTS_DAYS=7, SLEEP_BETWEEN_INSIGHTS_SECONDS=60,\n"
+                "     PAUSE_BETWEEN_CLIENTS_SECONDS=120\n"
                 "O configure CLIENT_IDS y variables CLIENT_*_ACCOUNT_ID, CLIENT_*_ACCESS_TOKEN, CLIENT_*_DATABASE"
             )
             sys.exit(1)
 
-        for client in clients:
+        for i, client in enumerate(clients):
+            if i > 0 and pause_clients > 0:
+                print(f"Pausa {pause_clients}s antes del cliente {client['id']}...")
+                time.sleep(pause_clients)
             run_pipeline_for_client(
                 client_id=client["id"],
                 account_id=client["account_id"],
                 access_token=client["access_token"],
                 database_name=client["database"],
+                load_ads=load_ads,
+                load_insights=load_insights,
+                initial_load_chunk_days=initial_load_chunk_days,
+                sleep_after_insights_days=sleep_after_insights_days,
+                sleep_seconds=sleep_seconds,
             )
 
         # Éxito: enviar OK

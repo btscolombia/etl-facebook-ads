@@ -1,5 +1,6 @@
 """Loads campaigns, ad sets, ads, leads and insight data from Facebook Marketing API"""
 
+import time
 from typing import Iterator, Sequence
 
 from facebook_business.api import FacebookResponse
@@ -100,6 +101,9 @@ def facebook_insights_source(
     account_id: str = dlt.config.value,
     access_token: str = dlt.secrets.value,
     initial_load_past_days: int = 30,
+    max_days_per_run: int = None,
+    sleep_after_n_days: int = 0,
+    sleep_seconds: int = 60,
     fields: Sequence[str] = DEFAULT_INSIGHT_FIELDS,
     attribution_window_days_lag: int = 7,
     time_increment_days: int = 1,
@@ -132,8 +136,11 @@ def facebook_insights_source(
     ) -> Iterator[TDataItems]:
         start_date = get_start_date(date_start, attribution_window_days_lag)
         end_date = pendulum.now()
+        days_processed = 0
 
         while start_date <= end_date:
+            if max_days_per_run is not None and days_processed >= max_days_per_run:
+                break
             query = {
                 "level": level,
                 "limit": batch_size,
@@ -164,6 +171,15 @@ def facebook_insights_source(
 
             job = execute_job(account.get_insights(params=query, is_async=True))
             yield list(map(process_report_item, job.get_result()))
+            days_processed += time_increment_days
             start_date = start_date.add(days=time_increment_days)
+
+            if (
+                (sleep_after_n_days or 0) > 0
+                and days_processed % (sleep_after_n_days or 1) == 0
+                and days_processed > 0
+                and start_date <= end_date
+            ):
+                time.sleep(sleep_seconds)
 
     return facebook_insights

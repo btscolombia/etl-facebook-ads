@@ -90,6 +90,33 @@ O con argumentos por cliente:
 python facebook_ads_pipeline.py cliente_a 123456789 EAAx... fb_cliente_a
 ```
 
+### Cargar Ads e Insights por separado
+
+```bash
+# Solo Ads (campañas, ad sets, ads, creatives, leads)
+python facebook_ads_pipeline.py --ads-only
+
+# Solo Insights (métricas por día)
+python facebook_ads_pipeline.py --insights-only
+```
+
+Variables de entorno equivalentes: `LOAD_ADS_ONLY=1` o `LOAD_INSIGHTS_ONLY=1`.
+
+### Carga histórica gradual (evitar rate limit)
+
+Para cargas grandes (ej. 365 días), usa lotes pequeños con pausas:
+
+```bash
+# Máximo 30 días por ejecución (ejecutar varias veces hasta completar)
+INITIAL_LOAD_CHUNK_DAYS=30 python facebook_ads_pipeline.py ...
+
+# Pausa de 60 segundos cada 7 días durante la carga
+SLEEP_AFTER_INSIGHTS_DAYS=7 SLEEP_BETWEEN_INSIGHTS_SECONDS=60 python facebook_ads_pipeline.py ...
+
+# Pausa de 2 minutos entre clientes
+PAUSE_BETWEEN_CLIENTS_SECONDS=120 python facebook_ads_pipeline.py ...
+```
+
 ## Credenciales de Facebook
 
 1. **Account ID**: en Ads Manager → Overview del menú de cuentas.
