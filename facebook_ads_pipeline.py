@@ -7,9 +7,12 @@ import os
 import sys
 from pathlib import Path
 
+import time
 import yaml
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.crons import capture_checkin
+from sentry_sdk.crons.consts import MonitorStatus
 import psycopg2
 
 import dlt
@@ -199,49 +202,94 @@ def main():
         verify_sentry()
         return
 
-    # Cron Monitoring: registrar inicio en Sentry
+    # Cron Monitoring: usar API oficial de Crons (sentry_sdk >= 1.45.0)
     cron_slug = os.environ.get("SENTRY_CRON_SLUG", "dlt-facebook-ads")
+    monitor_config = {
+        "schedule": {"type": "crontab", "value": "0 2 * * *"},
+        "timezone": "America/Bogota",
+        "checkin_margin": 10,
+        "max_runtime": 120,
+        "failure_issue_threshold": 3,
+        "recovery_threshold": 3,
+    }
     check_in_id = None
-    import time
     start_time = time.time()
+    sent_completion = False
+
     if os.environ.get("SENTRY_DSN"):
         try:
-            check_in_id = sentry_sdk.capture_checkin(
-                slug=cron_slug,
-                status="in_progress",
+            check_in_id = capture_checkin(
+                monitor_slug=cron_slug,
+                status=MonitorStatus.IN_PROGRESS,
+                monitor_config=monitor_config,
             )
         except Exception:
             pass
 
     # Modo: argumentos CLI > clients.yaml > env
-    if len(sys.argv) >= 4:
-        client_id = sys.argv[1]
-        account_id = sys.argv[2]
-        access_token = sys.argv[3]
-        database = sys.argv[4] if len(sys.argv) > 4 else f"fb_{client_id}"
-        clients = [{"id": client_id, "account_id": account_id, "access_token": access_token, "database": database}]
-    else:
-        clients = load_clients_from_yaml() or load_clients_from_env()
+    try:
+        if len(sys.argv) >= 4:
+            client_id = sys.argv[1]
+            account_id = sys.argv[2]
+            access_token = sys.argv[3]
+            database = sys.argv[4] if len(sys.argv) > 4 else f"fb_{client_id}"
+            clients = [{"id": client_id, "account_id": account_id, "access_token": access_token, "database": database}]
+        else:
+            clients = load_clients_from_yaml() or load_clients_from_env()
 
-    if not clients:
-        print(
-            "Uso: python facebook_ads_pipeline.py <client_id> <account_id> <access_token> [database]\n"
-            "O configure CLIENT_IDS y variables CLIENT_*_ACCOUNT_ID, CLIENT_*_ACCESS_TOKEN, CLIENT_*_DATABASE"
-        )
-        sys.exit(1)
+        if not clients:
+            print(
+                "Uso: python facebook_ads_pipeline.py <client_id> <account_id> <access_token> [database]\n"
+                "O configure CLIENT_IDS y variables CLIENT_*_ACCOUNT_ID, CLIENT_*_ACCESS_TOKEN, CLIENT_*_DATABASE"
+            )
+            sys.exit(1)
 
-    for client in clients:
-        try:
+        for client in clients:
             run_pipeline_for_client(
                 client_id=client["id"],
                 account_id=client["account_id"],
                 access_token=client["access_token"],
                 database_name=client["database"],
             )
-        except Exception as e:
-            sentry_sdk.capture_exception(e)
-            print(f"Error para cliente {client['id']}: {e}")
-            raise
+
+        # Éxito: enviar OK
+        if os.environ.get("SENTRY_DSN") and check_in_id:
+            try:
+                capture_checkin(
+                    monitor_slug=cron_slug,
+                    check_in_id=check_in_id,
+                    status=MonitorStatus.OK,
+                    duration=int(time.time() - start_time),
+                )
+                sent_completion = True
+            except Exception:
+                pass
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        print(f"Error: {e}")
+        if os.environ.get("SENTRY_DSN") and check_in_id and not sent_completion:
+            try:
+                capture_checkin(
+                    monitor_slug=cron_slug,
+                    check_in_id=check_in_id,
+                    status=MonitorStatus.ERROR,
+                    duration=int(time.time() - start_time),
+                )
+                sent_completion = True
+            except Exception:
+                pass
+        raise
+    finally:
+        if os.environ.get("SENTRY_DSN") and check_in_id and not sent_completion:
+            try:
+                capture_checkin(
+                    monitor_slug=cron_slug,
+                    check_in_id=check_in_id,
+                    status=MonitorStatus.ERROR,
+                    duration=int(time.time() - start_time),
+                )
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

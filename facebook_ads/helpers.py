@@ -170,7 +170,8 @@ def get_ads_account(
         request_timeout=request_timeout,
         raise_for_status=False,
         retry_condition=retry_on_limit,
-        request_max_attempts=12,
+        # Limita los reintentos por petición para no quedarse intentando indefinidamente
+        request_max_attempts=3,
         request_backoff_factor=2,
     ).session
     retry_session.params.update({"access_token": access_token})
