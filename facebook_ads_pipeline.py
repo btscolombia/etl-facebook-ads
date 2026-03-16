@@ -199,6 +199,20 @@ def main():
         verify_sentry()
         return
 
+    # Cron Monitoring: registrar inicio en Sentry
+    cron_slug = os.environ.get("SENTRY_CRON_SLUG", "dlt-facebook-ads")
+    check_in_id = None
+    import time
+    start_time = time.time()
+    if os.environ.get("SENTRY_DSN"):
+        try:
+            check_in_id = sentry_sdk.capture_checkin(
+                slug=cron_slug,
+                status="in_progress",
+            )
+        except Exception:
+            pass
+
     # Modo: argumentos CLI > clients.yaml > env
     if len(sys.argv) >= 4:
         client_id = sys.argv[1]
