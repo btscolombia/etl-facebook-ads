@@ -5,7 +5,7 @@ Muestra si el pipeline está ejecutándose y el resultado de la última carrera.
 
 Uso:
   python observer.py           # Estado actual
-  python observer.py --serve   # Servidor HTTP en puerto 8080
+  python observer.py --serve   # Servidor HTTP en puerto 9180
   python observer.py --watch   # Actualización cada 5 segundos
 """
 import argparse
@@ -88,7 +88,7 @@ def serve_http(port: int = 8080):
         def log_message(self, format, *args):
             pass  # Silenciar logs
 
-    print(f"Observador HTTP en http://0.0.0.0:{port}/status")
+    print(f"Observador HTTP en http://0.0.0.0:{port}/status (puerto no estándar por seguridad)")
     print("Ctrl+C para detener")
     server = HTTPServer(("0.0.0.0", port), StatusHandler)
     try:
@@ -114,8 +114,8 @@ def watch(interval: int = 5):
 
 def main():
     parser = argparse.ArgumentParser(description="Observador del pipeline dlt Facebook Ads")
-    parser.add_argument("--serve", action="store_true", help="Iniciar servidor HTTP en puerto 8080")
-    parser.add_argument("--port", type=int, default=8080, help="Puerto para --serve")
+    parser.add_argument("--serve", action="store_true", help="Iniciar servidor HTTP en puerto 9180")
+    parser.add_argument("--port", type=int, default=9180, help="Puerto para --serve")
     parser.add_argument("--watch", action="store_true", help="Actualizar estado cada 5 segundos")
     parser.add_argument("--interval", type=int, default=5, help="Intervalo en segundos para --watch")
     parser.add_argument("--json", action="store_true", help="Salida JSON")

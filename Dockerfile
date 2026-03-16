@@ -15,5 +15,5 @@ COPY . .
 # El observador HTTP corre siempre para que Uptime Kuma (u otros) puedan monitorear el estado.
 # El pipeline se ejecuta con: docker exec <container> python facebook_ads_pipeline.py
 # o desde Schedule Jobs en Dokploy.
-EXPOSE 8080
-CMD ["python", "observer.py", "--serve", "--port", "8080"]
+EXPOSE 9180
+CMD ["python", "observer.py", "--serve", "--port", "9180"]

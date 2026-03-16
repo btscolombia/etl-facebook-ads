@@ -138,7 +138,7 @@ Si configuras `SENTRY_DSN`, los errores del pipeline se envían a Sentry. Útil 
 
 ## Observador (estado del pipeline)
 
-El contenedor ejecuta **por defecto** el observador HTTP en el puerto **8080**, así puedes monitorear el estado del pipeline.
+El contenedor ejecuta **por defecto** el observador HTTP en el puerto **9180** (no estándar, por seguridad), así puedes monitorear el estado del pipeline.
 
 ```bash
 # Dentro del contenedor (opcional):
@@ -147,7 +147,7 @@ python observer.py --watch      # Actualiza cada 5 segundos
 python observer.py --json       # Salida en JSON
 ```
 
-**Endpoint:** `GET http://tu-servidor:8080/status` devuelve JSON con el estado (running, last_run, etc.).
+**Endpoint:** `GET http://tu-servidor:9180/status` devuelve JSON con el estado (running, last_run, etc.).
 
 ### Uptime Kuma
 
@@ -155,7 +155,7 @@ Para monitorear con [Uptime Kuma](https://github.com/louislam/uptime-kuma):
 
 1. Añade un **nuevo monitor**.
 2. **Monitor Type:** HTTP(s).
-3. **URL:** `http://dlt-facebook-ads:8080/status` (si está en la misma red Docker) o `http://TU_IP_SERVIDOR:8080/status`.
+3. **URL:** `http://dlt-facebook-ads:9180/status` (si está en la misma red Docker) o `http://TU_IP_SERVIDOR:9180/status`.
 4. **Intervalo:** 60 segundos o el que prefieras.
 
 Cuando el pipeline esté ejecutándose, verás `"running": true`; cuando termine, `"running": false` con el resultado.
