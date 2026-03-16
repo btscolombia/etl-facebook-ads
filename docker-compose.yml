@@ -16,6 +16,8 @@ services:
       - CLIENT_cliente_a_ACCOUNT_ID=${CLIENT_cliente_a_ACCOUNT_ID:-}
       - CLIENT_cliente_a_ACCESS_TOKEN=${CLIENT_cliente_a_ACCESS_TOKEN:-}
       - CLIENT_cliente_a_DATABASE=${CLIENT_cliente_a_DATABASE:-fb_cliente_a}
+    ports:
+      - "8080:8080"  # Observador: http://localhost:8080/status (para Uptime Kuma)
     # Descomentar si Postgres está en el mismo compose
     # depends_on:
     #   - postgres

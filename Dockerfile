@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# El contenedor se mantiene vivo para que Dokploy pueda ejecutar jobs programados
-# con: docker exec <container> python facebook_ads_pipeline.py
-CMD ["sleep", "infinity"]
+# El observador HTTP corre siempre para que Uptime Kuma (u otros) puedan monitorear el estado.
+# El pipeline se ejecuta con: docker exec <container> python facebook_ads_pipeline.py
+# o desde Schedule Jobs en Dokploy.
+EXPOSE 8080
+CMD ["python", "observer.py", "--serve", "--port", "8080"]

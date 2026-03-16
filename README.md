@@ -66,7 +66,7 @@ Para ejecutar el pipeline de forma periódica:
 ### 5. Desplegar
 
 1. Guarda la configuración y despliega la aplicación.
-2. El contenedor se mantendrá en ejecución (`sleep infinity`).
+2. El contenedor ejecuta el **observador HTTP** en el puerto 8080 (ver estado del pipeline).
 3. Los Schedule Jobs ejecutarán `python facebook_ads_pipeline.py` en el horario configurado.
 
 ## Ejecución manual
@@ -138,16 +138,27 @@ Si configuras `SENTRY_DSN`, los errores del pipeline se envían a Sentry. Útil 
 
 ## Observador (estado del pipeline)
 
-Para ver si el pipeline está ejecutándose y el resultado de la última carrera:
+El contenedor ejecuta **por defecto** el observador HTTP en el puerto **8080**, así puedes monitorear el estado del pipeline.
 
 ```bash
+# Dentro del contenedor (opcional):
 python observer.py              # Estado actual
 python observer.py --watch      # Actualiza cada 5 segundos
-python observer.py --serve      # Servidor HTTP en puerto 8080 (GET /status devuelve JSON)
 python observer.py --json       # Salida en JSON
 ```
 
-Con `--serve` puedes exponer el puerto y consultar desde fuera: `curl http://tu-servidor:8080/status`
+**Endpoint:** `GET http://tu-servidor:8080/status` devuelve JSON con el estado (running, last_run, etc.).
+
+### Uptime Kuma
+
+Para monitorear con [Uptime Kuma](https://github.com/louislam/uptime-kuma):
+
+1. Añade un **nuevo monitor**.
+2. **Monitor Type:** HTTP(s).
+3. **URL:** `http://dlt-facebook-ads:8080/status` (si está en la misma red Docker) o `http://TU_IP_SERVIDOR:8080/status`.
+4. **Intervalo:** 60 segundos o el que prefieras.
+
+Cuando el pipeline esté ejecutándose, verás `"running": true`; cuando termine, `"running": false` con el resultado.
 
 ## Estructura del proyecto
 
@@ -155,6 +166,7 @@ Con `--serve` puedes exponer el puerto y consultar desde fuera: `curl http://tu-
 etl_facebook/
 ├── facebook_ads/          # Verified source de dlt
 ├── facebook_ads_pipeline.py
+├── observer.py            # Observador de estado (CLI + HTTP para Uptime Kuma)
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
