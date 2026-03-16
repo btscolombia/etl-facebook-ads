@@ -22,10 +22,12 @@ def init_sentry():
         sentry_sdk.init(
             dsn=dsn,
             environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
-            traces_sample_rate=0.1,
+            traces_sample_rate=0.2,
             integrations=[
                 LoggingIntegration(level=None, event_level=None),
             ],
+            # Identificar el pipeline en Sentry
+            release=os.environ.get("SENTRY_RELEASE", "dlt-facebook-ads@1.0"),
         )
 
 
@@ -141,8 +143,20 @@ def load_clients_from_env():
     return clients
 
 
+def verify_sentry():
+    """Provoca un error intencional para verificar que Sentry recibe eventos."""
+    print("Verificando Sentry: provocando error intencional...")
+    division_by_zero = 1 / 0  # noqa: F841
+    print(division_by_zero)  # nunca se ejecuta
+
+
 def main():
     init_sentry()
+
+    # Modo verificación: python facebook_ads_pipeline.py --verify-sentry
+    if "--verify-sentry" in sys.argv or os.environ.get("SENTRY_VERIFY") == "1":
+        verify_sentry()
+        return
 
     # Modo: argumentos CLI > clients.yaml > env
     if len(sys.argv) >= 4:
