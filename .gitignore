@@ -1,0 +1,9 @@
+.dlt/secrets.toml
+clients.yaml
+._*
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/

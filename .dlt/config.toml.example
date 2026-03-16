@@ -1,0 +1,6 @@
+# Copiar a config.toml y ajustar
+# Las credenciales se inyectan por variables de entorno en Docker
+
+[sources.facebook_ads]
+# account_id se pasa por CLIENT_*_ACCOUNT_ID
+# access_token se pasa por CLIENT_*_ACCESS_TOKEN

@@ -1,0 +1,14 @@
+# Lista de clientes con sus credenciales de Facebook Ads
+# Copia este archivo a clients.yaml y configura los valores reales
+# IMPORTANTE: clients.yaml no se sube a git (está en .gitignore)
+
+clientes:
+  # Ejemplo de cliente - crea una base de datos en Postgres para cada uno
+  cliente_ejemplo:
+    account_id: "TU_ACCOUNT_ID_FACEBOOK"
+    access_token: "TU_ACCESS_TOKEN_LARGO"
+    database_name: "fb_cliente_ejemplo"
+    # Opcional: ventana de días para insights (por defecto 30)
+    # initial_load_past_days: 30
+    # Opcional: nivel de granularidad: account, campaign, adset, ad (por defecto ad)
+    # insights_level: "ad"

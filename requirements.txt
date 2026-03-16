@@ -1,0 +1,4 @@
+dlt[postgres]>=1.23.0
+facebook-business>=17.0.2,<18
+sentry-sdk>=1.45.0
+PyYAML>=6.0

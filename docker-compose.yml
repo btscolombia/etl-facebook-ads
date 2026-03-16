@@ -1,0 +1,25 @@
+services:
+  dlt-facebook-ads:
+    build: .
+    container_name: dlt-facebook-ads
+    restart: unless-stopped
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+      # Clientes: CLIENT_IDS=cliente_a,cliente_b
+      # Por cliente: CLIENT_cliente_a_ACCOUNT_ID, CLIENT_cliente_a_ACCESS_TOKEN, CLIENT_cliente_a_DATABASE
+      - CLIENT_IDS=${CLIENT_IDS:-}
+      - CLIENT_cliente_a_ACCOUNT_ID=${CLIENT_cliente_a_ACCOUNT_ID:-}
+      - CLIENT_cliente_a_ACCESS_TOKEN=${CLIENT_cliente_a_ACCESS_TOKEN:-}
+      - CLIENT_cliente_a_DATABASE=${CLIENT_cliente_a_DATABASE:-fb_cliente_a}
+    # Descomentar si Postgres está en el mismo compose
+    # depends_on:
+    #   - postgres
+    # Para mantener el contenedor vivo y permitir Schedule Jobs en Dokploy
+    deploy:
+      restart_policy:
+        condition: on-failure

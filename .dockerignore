@@ -1,0 +1,10 @@
+.dlt/secrets.toml
+clients.yaml
+__pycache__
+*.pyc
+.venv
+venv
+.git
+.gitignore
+*.md
+!README.md
