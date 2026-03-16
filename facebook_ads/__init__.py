@@ -6,7 +6,7 @@ from typing import Iterator, Sequence
 from facebook_business.api import FacebookResponse
 
 import dlt
-from dlt.common import logger, pendulum
+from dlt.common import pendulum
 from dlt.common.typing import TDataItems, TDataItem, DictStrAny
 from dlt.sources import DltResource
 
@@ -145,7 +145,7 @@ def facebook_insights_source(
             if max_days_per_run is not None and days_processed >= max_days_per_run:
                 break
             day_num = days_processed + 1
-            logger.info("Insights: procesando día %d/%d (%s)", day_num, total_days, start_date.to_date_string())
+            print(f"Insights: procesando día {day_num}/{total_days} ({start_date.to_date_string()})", flush=True)
             query = {
                 "level": level,
                 "limit": batch_size,
