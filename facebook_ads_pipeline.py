@@ -111,8 +111,8 @@ def run_pipeline_for_client(
             access_token=access_token,
             initial_load_past_days=days,
             max_days_per_run=chunk,
-            sleep_after_n_days=sleep_days,
-            sleep_seconds=sleep_sec,
+            sleep_after_n_days=sleep_days or 0,
+            sleep_seconds=sleep_sec or 60,
         )
         load_info = pipeline.run(insights_data)
         print(f"Cliente {client_id} - Insights: {load_info}")
