@@ -93,19 +93,20 @@ vid AS (
     GROUP BY i.campaign_id, i.adset_id, i.ad_id, i.date_start
 )
 SELECT
-    i.account_id,
-    i.campaign_id,
+    -- IDs como texto y fechas como date: Looker los detecta solos (sin sumar IDs ni mostrar hora)
+    i.account_id::text AS account_id,
+    i.campaign_id::text AS campaign_id,
     COALESCE(c.name, 'Campaña ' || i.campaign_id::text) AS campaign_name,
     c.objective AS campaign_objective,
     c.status AS campaign_status,
-    i.adset_id,
+    i.adset_id::text AS adset_id,
     COALESCE(s.name, 'AdSet ' || i.adset_id::text) AS adset_name,
     s.status AS adset_status,
-    i.ad_id,
+    i.ad_id::text AS ad_id,
     COALESCE(a.name, 'Ad ' || i.ad_id::text) AS ad_name,
     a.status AS ad_status,
-    i.date_start,
-    i.date_stop,
+    (i.date_start AT TIME ZONE 'UTC')::date AS date_start,
+    (i.date_stop AT TIME ZONE 'UTC')::date AS date_stop,
     i.reach, i.impressions, i.frequency, i.clicks, i.unique_clicks,
     i.spend, i.ctr, i.cpc, i.cpm, i.cpp,
     CASE WHEN NULLIF(i.impressions, 0) > 0 THEN ROUND((i.spend::numeric / NULLIF(i.impressions, 0) * 1000)::numeric, 4) ELSE NULL END AS cpm_calculado,
