@@ -22,7 +22,12 @@ from facebook_ads import facebook_ads_source, facebook_insights_source
 
 def init_sentry():
     """Inicializa Sentry si está configurado el DSN."""
-    dsn = os.environ.get("SENTRY_DSN")
+    dsn = os.environ.get("SENTRY_DSN", "").strip()
+    if dsn and not dsn.startswith(("http://", "https://")):
+        # DSN inválido (ej. un placeholder): desactivar Sentry en vez de romper el pipeline
+        print(f"SENTRY_DSN inválido ({dsn[:20]!r}), Sentry desactivado.", flush=True)
+        os.environ.pop("SENTRY_DSN", None)
+        return
     if dsn:
         sentry_sdk.init(
             dsn=dsn,
