@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 import time
 import yaml
@@ -79,7 +80,8 @@ def run_pipeline_for_client(
     creds["database"] = database_name
 
     credentials = (
-        f"postgresql://{creds['username']}:{creds['password']}"
+        # quote(): contraseñas con @ : / # rompen la URL si no se codifican
+        f"postgresql://{quote(creds['username'], safe='')}:{quote(creds['password'], safe='')}"
         f"@{creds['host']}:{creds['port']}/{creds['database']}"
     )
 
