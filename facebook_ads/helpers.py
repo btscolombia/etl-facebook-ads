@@ -2,7 +2,8 @@
 
 import functools
 import itertools
-from typing import Any, Iterator, Sequence
+import time
+from typing import Any, Callable, Iterator, Sequence
 
 import dlt
 import humanize
@@ -19,6 +20,7 @@ from facebook_business import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.user import User
 from facebook_business.api import FacebookResponse
+from facebook_business.exceptions import FacebookRequestError
 
 from .exceptions import InsightsJobTimeout
 from .settings import (
@@ -105,6 +107,27 @@ def enrich_ad_objects(fb_obj_type: AbstractObject, fields: Sequence[str]) -> Any
         return items
 
     return _wrap
+
+
+RATE_LIMIT_CODES = (4, 17, 32, 613, *range(80000, 80015))
+# Esperas ante límite de uso de Meta (el reintento corto del Client solo cubre ~7s)
+RATE_LIMIT_WAITS_SECONDS = (60, 180, 300, 600)
+
+
+def call_with_rate_limit_wait(fn: Callable[[], Any]) -> Any:
+    """Ejecuta fn y, si Meta responde límite de uso, espera y reintenta con pausas largas."""
+    for attempt, wait in enumerate((*RATE_LIMIT_WAITS_SECONDS, None), start=1):
+        try:
+            return fn()
+        except FacebookRequestError as e:
+            if e.api_error_code() not in RATE_LIMIT_CODES or wait is None:
+                raise
+            print(
+                f"Límite de la API de Meta (código {e.api_error_code()}): esperando {wait}s "
+                f"antes de reintentar ({attempt}/{len(RATE_LIMIT_WAITS_SECONDS)})",
+                flush=True,
+            )
+            time.sleep(wait)
 
 
 def execute_job(

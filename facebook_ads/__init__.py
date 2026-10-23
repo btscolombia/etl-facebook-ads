@@ -18,6 +18,7 @@ from .helpers import (
     process_report_item,
     execute_job,
     get_ads_account,
+    call_with_rate_limit_wait,
 )
 from .utils import (
     Ad,
@@ -188,8 +189,11 @@ def facebook_insights_source(
             if action_breakdowns is not None:
                 query["action_breakdowns"] = list(action_breakdowns)
 
-            job = execute_job(account.get_insights(params=query, is_async=True))
-            yield list(map(process_report_item, job.get_result()))
+            def fetch_day():
+                job = execute_job(account.get_insights(params=query, is_async=True))
+                return list(map(process_report_item, job.get_result()))
+
+            yield call_with_rate_limit_wait(fetch_day)
             days_processed += time_increment_days
             start_date = start_date.add(days=time_increment_days)
 
