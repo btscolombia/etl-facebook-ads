@@ -4,6 +4,7 @@ import time
 from typing import Iterator, Sequence
 
 from facebook_business.api import FacebookResponse
+from facebook_business.exceptions import FacebookRequestError
 
 import dlt
 from dlt.common import pendulum
@@ -77,15 +78,28 @@ def facebook_ads_source(
     ) -> Iterator[TDataItems]:
         yield get_data_chunked(account.get_ad_sets, fields, states, chunk_size)
 
+    leads_denied = False
+
     @dlt.transformer(primary_key="id", write_disposition="replace", selected=True)
     def leads(
         items: TDataItems,
         fields: Sequence[str] = DEFAULT_LEAD_FIELDS,
         states: Sequence[str] = None,
     ) -> Iterator[TDataItems]:
+        nonlocal leads_denied
+        if leads_denied:
+            return
         for item in items:
             ad = Ad(item["id"])
-            yield get_data_chunked(ad.get_leads, fields, states, chunk_size)
+            try:
+                yield from get_data_chunked(ad.get_leads, fields, states, chunk_size)
+            except FacebookRequestError as e:
+                # Sin leads_retrieval: omitir leads (las vistas usan las acciones de Insights)
+                if "permission" in (e.api_error_message() or "").lower():
+                    print(f"Leads omitidos: el token no tiene permiso leads_retrieval ({e.api_error_message()})", flush=True)
+                    leads_denied = True
+                    return
+                raise
 
     @dlt.resource(primary_key="id", write_disposition="replace")
     def ad_creatives(
