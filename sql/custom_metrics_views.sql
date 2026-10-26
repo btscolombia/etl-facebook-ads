@@ -98,6 +98,13 @@ lnk AS (
     JOIN facebook_ads_data.facebook_insights__actions act ON act._dlt_parent_id = i._dlt_id
     WHERE act.action_type = 'link_click'
     GROUP BY i.campaign_id, i.adset_id, i.ad_id, i.date_start
+),
+eng AS (
+    SELECT i.campaign_id, i.adset_id, i.ad_id, i.date_start, SUM((act.value)::bigint)::bigint AS post_engagement
+    FROM facebook_ads_data.facebook_insights i
+    JOIN facebook_ads_data.facebook_insights__actions act ON act._dlt_parent_id = i._dlt_id
+    WHERE act.action_type = 'post_engagement'
+    GROUP BY i.campaign_id, i.adset_id, i.ad_id, i.date_start
 )
 SELECT
     -- IDs como texto y fechas como date: Looker los detecta solos (sin sumar IDs ni mostrar hora)
@@ -126,6 +133,7 @@ SELECT
     n.pur_n AS compras,
     n.vid_n AS video_views,
     n.lnk_n AS clics_enlace,
+    n.eng_n AS interacciones,
     r.valor AS resultado,
     t.tipo AS resultado_tipo,
     ROUND((i.spend::numeric / NULLIF(r.valor, 0))::numeric, 4) AS costo_por_resultado
@@ -138,13 +146,15 @@ LEFT JOIN lea ON lea.campaign_id::text = i.campaign_id::text AND lea.adset_id::t
 LEFT JOIN pur ON pur.campaign_id::text = i.campaign_id::text AND pur.adset_id::text = i.adset_id::text AND pur.ad_id::text = i.ad_id::text AND pur.date_start = i.date_start
 LEFT JOIN vid ON vid.campaign_id::text = i.campaign_id::text AND vid.adset_id::text = i.adset_id::text AND vid.ad_id::text = i.ad_id::text AND vid.date_start = i.date_start
 LEFT JOIN lnk ON lnk.campaign_id::text = i.campaign_id::text AND lnk.adset_id::text = i.adset_id::text AND lnk.ad_id::text = i.ad_id::text AND lnk.date_start = i.date_start
+LEFT JOIN eng ON eng.campaign_id::text = i.campaign_id::text AND eng.adset_id::text = i.adset_id::text AND eng.ad_id::text = i.ad_id::text AND eng.date_start = i.date_start
 CROSS JOIN LATERAL (
     SELECT
         COALESCE(conv.nuevas_conversaciones, 0)::bigint AS conv_n,
         COALESCE(lea.leads, 0)::bigint AS leads_n,
         COALESCE(pur.purchases, 0)::bigint AS pur_n,
         COALESCE(vid.video_views, 0)::bigint AS vid_n,
-        COALESCE(lnk.link_clicks, 0)::bigint AS lnk_n
+        COALESCE(lnk.link_clicks, 0)::bigint AS lnk_n,
+        COALESCE(eng.post_engagement, 0)::bigint AS eng_n
 ) n
 -- Resultado = lo que optimiza el conjunto de anuncios (como "Resultados" en el Administrador de anuncios).
 -- Si no hay optimization_goal reconocido, se usa el objetivo de la campaña.
@@ -157,6 +167,8 @@ CROSS JOIN LATERAL (
         WHEN s.optimization_goal IN ('THRUPLAY', 'VIDEO_VIEWS') THEN 'Video views'
         WHEN s.optimization_goal IN ('LINK_CLICKS', 'LANDING_PAGE_VIEWS') THEN 'Clics en enlace'
         WHEN s.optimization_goal IN ('REACH', 'IMPRESSIONS', 'AD_RECALL_LIFT') THEN 'Alcance'
+        -- Visitas al perfil no vienen en Insights: se reportan las interacciones con la publicación
+        WHEN s.optimization_goal IN ('PROFILE_AND_PAGE_ENGAGEMENT', 'POST_ENGAGEMENT', 'PAGE_LIKES', 'PROFILE_VISIT') THEN 'Interacciones'
         WHEN c.objective = 'OUTCOME_LEADS' THEN 'Leads'
         WHEN c.objective = 'OUTCOME_SALES' THEN 'Ventas'
         WHEN c.objective = 'OUTCOME_TRAFFIC' THEN 'Clics en enlace'
@@ -175,6 +187,7 @@ CROSS JOIN LATERAL (
         WHEN 'Video views' THEN n.vid_n
         WHEN 'Clics en enlace' THEN n.lnk_n
         WHEN 'Alcance' THEN i.reach
+        WHEN 'Interacciones' THEN n.eng_n
         ELSE 0
     END)::bigint AS valor
 ) r;
