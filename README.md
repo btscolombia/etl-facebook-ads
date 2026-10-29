@@ -142,6 +142,7 @@ Conecta Looker Studio a cada base de datos Postgres de cliente:
 | `v_instagram_publicaciones` | Una fila por post o reel con sus métricas acumuladas |
 | `v_instagram_historias` | Una fila por historia con la última lectura antes de expirar |
 | `v_instagram_audiencia` | Edad, género, ciudad y país de los seguidores (último corte) |
+| **`v_instagram`** | **Las 4 anteriores en una sola fuente para Looker**: columnas con prefijo `cuenta_`, `seguidores_`, `publicacion_`/`reel_`, `historia_`, `audiencia_` (cada fila solo llena su grupo) |
 
 Variables adicionales por cliente: `CLIENT_{id}_IG_USER_ID` (obligatoria) y `CLIENT_{id}_IG_ACCESS_TOKEN` (opcional; si no está se usa `CLIENT_{id}_ACCESS_TOKEN`). El token necesita `instagram_basic`, `instagram_manage_insights`, `pages_show_list` y `pages_read_engagement`.
 
