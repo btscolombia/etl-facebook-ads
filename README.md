@@ -132,6 +132,29 @@ Conecta Looker Studio a cada base de datos Postgres de cliente:
 3. Base de datos: `fb_cliente_a` (o la del cliente).
 4. Tablas generadas por dlt: `campaigns`, `ad_sets`, `ads`, `ad_creatives`, `facebook_insights`, etc.
 
+## Instagram (estadísticas orgánicas)
+
+`instagram_pipeline.py` carga en la misma base de cada cliente, esquema `instagram_data`, y crea las vistas de `sql/instagram_views.sql` en `public`:
+
+| Vista | Contenido |
+|-------|-----------|
+| `v_instagram_diario` | Alcance, visualizaciones (seguidores / no seguidores), interacciones, seguidores nuevos y perdidos por día, total de seguidores (foto diaria) |
+| `v_instagram_publicaciones` | Una fila por post o reel con sus métricas acumuladas |
+| `v_instagram_historias` | Una fila por historia con la última lectura antes de expirar |
+| `v_instagram_audiencia` | Edad, género, ciudad y país de los seguidores (último corte) |
+
+Variables adicionales por cliente: `CLIENT_{id}_IG_USER_ID` (obligatoria) y `CLIENT_{id}_IG_ACCESS_TOKEN` (opcional; si no está se usa `CLIENT_{id}_ACCESS_TOKEN`). El token necesita `instagram_basic`, `instagram_manage_insights`, `pages_show_list` y `pages_read_engagement`.
+
+```bash
+python instagram_pipeline.py              # diario: cuenta, perfil, publicaciones recientes, historias
+python instagram_pipeline.py --historias  # cada 4 h: Meta borra las estadísticas de historias a las 24 h
+python instagram_pipeline.py --semanal    # semanal: todas las publicaciones y la audiencia
+```
+
+Opcionales: `IG_INITIAL_LOAD_DAYS` (días de la primera carga de la cuenta, por defecto 90, máximo 729), `IG_MEDIA_REFRESH_DAYS` (publicaciones recientes a refrescar en el diario, 30), `REPORT_TIMEZONE` (`America/Bogota`), `IG_API_VERSION` (`v26.0`).
+
+Las métricas diarias de la cuenta usan el día de Meta (medianoche hora del Pacífico); las fechas de publicaciones e historias usan `REPORT_TIMEZONE`.
+
 ## Sentry
 
 Si configuras `SENTRY_DSN`, los errores del pipeline se envían a Sentry. Útil para ver fallos y progreso sin interfaz gráfica propia en dlt.

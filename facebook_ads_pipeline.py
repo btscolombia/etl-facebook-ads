@@ -53,6 +53,15 @@ def get_postgres_credentials():
     }
 
 
+def postgres_url(creds: dict) -> str:
+    """URL de conexión para dlt a partir de get_postgres_credentials()."""
+    # quote(): contraseñas con @ : / # rompen la URL si no se codifican
+    return (
+        f"postgresql://{quote(creds['username'], safe='')}:{quote(creds['password'], safe='')}"
+        f"@{creds['host']}:{creds['port']}/{creds['database']}"
+    )
+
+
 def get_initial_load_days(client_id: str) -> int:
     """Días históricos a cargar. Desde env: CLIENT_X_INITIAL_LOAD_DAYS o INITIAL_LOAD_PAST_DAYS."""
     prefix = f"CLIENT_{client_id.upper().replace('-', '_')}_"
@@ -79,18 +88,12 @@ def run_pipeline_for_client(
     creds = get_postgres_credentials()
     creds["database"] = database_name
 
-    credentials = (
-        # quote(): contraseñas con @ : / # rompen la URL si no se codifican
-        f"postgresql://{quote(creds['username'], safe='')}:{quote(creds['password'], safe='')}"
-        f"@{creds['host']}:{creds['port']}/{creds['database']}"
-    )
-
     pipeline_name = f"facebook_ads_{client_id}"
     dataset_name = "facebook_ads_data"
 
     pipeline = dlt.pipeline(
         pipeline_name=pipeline_name,
-        destination=dlt.destinations.postgres(credentials),
+        destination=dlt.destinations.postgres(postgres_url(creds)),
         dataset_name=dataset_name,
     )
 
@@ -130,11 +133,11 @@ def run_pipeline_for_client(
         apply_custom_metrics_views(database_name, creds)
 
 
-def apply_custom_metrics_views(database_name: str, creds: dict):
+def apply_custom_metrics_views(database_name: str, creds: dict, sql_file: str = "custom_metrics_views.sql"):
     """Crea/actualiza vistas de métricas personalizadas en Postgres."""
-    sql_path = Path(__file__).parent / "sql" / "custom_metrics_views.sql"
+    sql_path = Path(__file__).parent / "sql" / sql_file
     if not sql_path.exists():
-        print("  (sql/custom_metrics_views.sql no encontrado, omitiendo vistas)")
+        print(f"  (sql/{sql_file} no encontrado, omitiendo vistas)")
         return
     sql = sql_path.read_text()
     conn = None
